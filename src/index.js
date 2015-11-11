@@ -83,6 +83,7 @@ MODecide.prototype.eventHandlers.onSessionEnded = function (sessionEndedRequest,
  */
 MODecide.prototype.intentHandlers = {
     OneShotUmbrellaIntent: function (intent, session, response) {
+        console.log('OneShotUmbrellaIntent');
         handleOneshotUmbrellaRequest(intent, session, response);
     },
 
@@ -138,7 +139,7 @@ function handleHelpRequest(response) {
  */
 function handleCityDialogRequest(intent, session, response) {
 
-    var cityStation = getCityStationFromIntent(intent, false);
+    var cityStation = getLocationFromIntent(intent, false);
     if (cityStation.error) {
         var repromptText = "Currently, I know tide information for these west coast cities: " + getAllStationsText()
             + "Which city would you like tide information for?";
@@ -217,7 +218,7 @@ function handleNoSlotDialogRequest(intent, session, response) {
 function handleOneshotUmbrellaRequest(intent, session, response) {
 
     // Determine city, using default if none provided
-    var location = getCityStationFromIntent(intent, true);
+    var location = getLocationFromIntent(intent, true);
     if (location.error) {
         // invalid city. move to the dialog
         var repromptText = "Currently, I can only help you with cities in the UK"
@@ -262,10 +263,10 @@ function getUmbrellaDecisionResponse(rainProb) {
  * Both the one-shot and dialog based paths lead to this method to issue the request, and
  * respond to the user with the final answer.
  */
-function getFinalUmbrellaResponse(Location, date, response) {
+function getFinalUmbrellaResponse(location, date, response) {
 
     // Issue the request, and respond to the user
-    makeDataPointRequest(Location.station, date, function dataPointCallback(err, dataPointResponse) {
+    makeDataPointRequest(location, date, function dataPointCallback(err, dataPointResponse) {
         var speechOutput;
 
         if (err) {
@@ -291,13 +292,14 @@ function makeDataPointRequest(station, date, callback) {
  */
 function getLocationFromIntent(intent, assignDefault) {
 
-    var locationSlot = intent.slots.Location;
+    var locationSlot = intent.slots.location;
     // slots can be missing, or slots can be provided but with empty value.
     // must test for both.
     if (!locationSlot || !locationSlot.value) {
        /* if missing */
     } else {
         // lookup the city. Sample skill uses well known mapping of a few known cities to station id.
+        return locationSlot.value;
     }
 }
 
@@ -337,6 +339,6 @@ function getDateFromIntent(intent) {
 
 // Create the handler that responds to the Alexa Request.
 exports.handler = function (event, context) {
-    var MODecide = new MODecide();
-    MODecide.execute(event, context);
+    var moDecide = new MODecide();
+    moDecide.execute(event, context);
 };

@@ -4,6 +4,9 @@ grunt.loadNpmTasks('grunt-aws-lambda');
 grunt.initConfig({
     lambda_invoke: {
         default: {
+            options: {
+                file_name: 'src/index.js'
+            }
         }
     },
     lambda_deploy: {
