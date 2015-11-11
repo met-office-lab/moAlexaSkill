@@ -78,7 +78,8 @@ function onIntent(intentRequest, session, callback) {
         intentName = intentRequest.intent.name;
 
     // Dispatch to your skill's intent handlers
-    if ("needUmbrella" === intentName) {
+    console.log('intent', intentName);
+    if ("NeedUmbrella" === intentName) {
         getNeedUmbrea(intent, session, callback);
     } else {
         throw "Invalid intent";
@@ -119,7 +120,8 @@ function getWelcomeResponse(callback) {
  */
 function getNeedUmbrea(intent, session, callback) {
     var cardTitle = intent.name;
-    var favoriteColorSlot = intent.slots.Color;
+    console.log('slots', intent.slots);
+    var ukPlace = intent.slots.ukPlace;
     var repromptText = "";
     var sessionAttributes = {};
     var shouldEndSession = false;
@@ -127,7 +129,7 @@ function getNeedUmbrea(intent, session, callback) {
 
     if (ukPlace) {
         var ukPlace = ukPlace.value;
-        speechOutput = "Oooh I don't know - I'll ask Jacob";
+        speechOutput = "Oooh I don't know about "+ ukPlace +" I'll ask Jacob";
         repromptText = "You can ask me if you need an umbrella if you like";
     } else {
         speechOutput = "I'm not sure where you are, please tell me again";
@@ -163,6 +165,7 @@ function buildSpeechletResponse(title, output, repromptText, shouldEndSession) {
 }
 
 function buildResponse(sessionAttributes, speechletResponse) {
+    console.log('speechlet', speechletResponse);
     return {
         version: "1.0",
         sessionAttributes: sessionAttributes,
