@@ -1,5 +1,5 @@
 {"intents" : [
-  {"intent": "NeedUmbrella",
+  {"intent": "OneShotUmbrellaIntent",
    "slots" : [{"name": "ukPlace", "type": "UK_PLACES"}]
   }
 ]}

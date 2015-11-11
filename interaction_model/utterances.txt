@@ -1,1 +1,1 @@
-NeedUmbrella do I need an umbrella in {ukPlace}
+OneShotUmbrellaIntent do I need an umbrella in {ukPlace}
