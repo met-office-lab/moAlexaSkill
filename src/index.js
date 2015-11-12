@@ -38,7 +38,9 @@
 var APP_ID = undefined; //replace with "amzn1.echo-sdk-ams.app.[your-unique-value-here]";
 
 var http = require('http'),
-    alexaDateUtil = require('./alexaDateUtil');
+    alexaDateUtil = require('./alexaDateUtil'),
+    datapoint = require("datapoint-js"),
+    request = require("request");
 
 /**
  * The AlexaSkill prototype and helper functions
@@ -101,10 +103,6 @@ MODecide.prototype.intentHandlers = {
         }
     },
 
-    SupportedCitiesIntent: function (intent, session, response) {
-        handleSupportedCitiesRequest(intent, session, response);
-    },
-
     HelpIntent: function (intent, session, response) {
         handleHelpRequest(response);
     }
@@ -135,120 +133,40 @@ function handleHelpRequest(response) {
 }
 
 /**
- * Handles the dialog step where the user provides a city
- */
-function handleCityDialogRequest(intent, session, response) {
-
-    var cityStation = getLocationFromIntent(intent, false);
-    if (cityStation.error) {
-        var repromptText = "Currently, I know tide information for these west coast cities: " + getAllStationsText()
-            + "Which city would you like tide information for?";
-        // if we received a value for the incorrect city, repeat it to the user, otherwise we received an empty slot
-        var speechOutput = cityStation.city ? "I'm sorry, I don't have any data for " + cityStation.city + ". " + repromptText : repromptText;
-        response.ask(speechOutput, repromptText);
-        return;
-    }
-
-    // if we don't have a date yet, go to date. If we have a date, we perform the final request
-    if (session.attributes.date) {
-        getFinalTideResponse(cityStation, session.attributes.date, response);
-    } else {
-        // set city in session and prompt for date
-        session.attributes.city = cityStation;
-        var speechOutput = "For which date?";
-        var repromptText = "For which date would you like tide information for " + cityStation.city + "?";
-
-        response.ask(speechOutput, repromptText);
-    }
-}
-
-/**
- * Handles the dialog step where the user provides a date
- */
-function handleDateDialogRequest(intent, session, response) {
-
-    var date = getDateFromIntent(intent);
-    if (!date) {
-        var repromptText = "Please try again saying a day of the week, for example, Saturday. "
-            + "For which date would you like tide information?";
-        var speechOutput = "I'm sorry, I didn't understand that date. " + repromptText;
-
-        response.ask(speechOutput, repromptText);
-        return;
-    }
-
-    // if we don't have a city yet, go to city. If we have a city, we perform the final request
-    if (session.attributes.city) {
-        getFinalTideResponse(session.attributes.city, date, response);
-    } else {
-        // The user provided a date out of turn. Set date in session and prompt for city
-        session.attributes.date = date;
-        var speechOutput = "For which city would you like tide information for " + date.displayDate + "?";
-        var repromptText = "For which city?";
-
-        response.ask(speechOutput, repromptText);
-    }
-}
-
-/**
- * Handle no slots, or slot(s) with no values.
- * In the case of a dialog based skill with multiple slots,
- * when passed a slot with no value, we cannot have confidence
- * it is the correct slot type so we rely on session state to
- * determine the next turn in the dialog, and reprompt.
- */
-function handleNoSlotDialogRequest(intent, session, response) {
-    if (session.attributes.city) {
-        // get date re-prompt
-        var repromptText = "Please try again saying a day of the week, for example, Saturday. ";
-        var speechOutput = repromptText;
-
-        response.ask(speechOutput, repromptText);
-    } else {
-        // get city re-prompt
-        handleSupportedCitiesRequest(intent, session, response);
-    }
-}
-
-/**
  * This handles the one-shot interaction, where the user utters a phrase like:
  * 'Alexa, open Tide Pooler and get tide information for Seattle on Saturday'.
  * If there is an error in a slot, this will guide the user to the dialog approach.
  */
 function handleOneshotUmbrellaRequest(intent, session, response) {
-
     // Determine city, using default if none provided
-    var location = getLocationFromIntent(intent, true);
-    if (location.error) {
-        // invalid city. move to the dialog
-        var repromptText = "Currently, I can only help you with cities in the UK"
-                         + "Which city would you like tide information for?";
-        // if we received a value for the incorrect city, repeat it to the user, otherwise we received an empty slot
-        var speechOutput = location.city ? "I'm sorry, I don't have any data for " + location.city + ". " + repromptText : repromptText;
-
-        response.ask(speechOutput, repromptText);
-        return;
-    }
-
-    // // Determine custom date
-    // var date = getDateFromIntent(intent);
-    // if (!date) {
-    //     // Invalid date. set city in session and prompt for date
-    //     session.attributes.city = location;
-    //     var repromptText = "Please try again saying a day of the week, for example, Saturday. "
-    //         + "For which date would you like tide information?";
-    //     var speechOutput = "I'm sorry, I didn't understand that date. " + repromptText;
-
-    //     response.ask(speechOutput, repromptText);
-    //     return;
-    // }
-
-    // all slots filled, either from the user or by default values. Move to final request
-    date = new Date();
-    getFinalUmbrellaResponse(location, date, response);
+    var responseTxt = getLocationFromIntent(intent, function(location) { 
+                            getWeatherFromLocation(location, function(weather) {
+                                setUmbrellaDecisionResponse( weather, response )
+                                                   })
+                                            });
 }
 
-function getUmbrellaDecisionResponse(rainProb) {
+/**
+ * Gets the city from the intent, or returns an error
+ */
+function getLocationFromIntent(intent) {
+    request.get("http://nominatim.openstreetmap.org/search?q=+"+intent.slots.City+"&format=json&polygon=0&addressdetails=1")
+            .on("error", function(e) {throw e} )
+            .on("response", function(r) { callback({"lat": r.lat,
+                                                    "lon": r.lon,
+                                                    "City": intent.slots.City})})
+}
+
+function getWeatherFromLocation(location){
+    datapoint.set_key("41bf616e-7dbc-4066-826a-7270b8da4b93");
+    var site = datapoint.get_nearest_site(location.lon, location.lat);
+    var forecast = datapoint.get_forecast_for_site(site.id);
+    var current_timestep = forecast.days[0].timesteps[0];
+    
+    callback(current_timestep.precipitation.value);
+}
+
+function getUmbrellaDecisionResponse( rainProb, response ) {
     var decisionTxt = "";
     if (rainProb > 0.5) {
         decisionTxt = "Take an umbrella";
@@ -256,86 +174,11 @@ function getUmbrellaDecisionResponse(rainProb) {
         decisionTxt = "Don't take an umbrella";
     }
 
+    response.tellWithCard(responseTxt, "Do you need an umbrella?", responseTxt)
+
     return decisionTxt;
 }
 
-/**
- * Both the one-shot and dialog based paths lead to this method to issue the request, and
- * respond to the user with the final answer.
- */
-function getFinalUmbrellaResponse(location, date, response) {
-
-    // Issue the request, and respond to the user
-    makeDataPointRequest(location, date, function dataPointCallback(err, dataPointResponse) {
-        var speechOutput;
-
-        if (err) {
-            speechOutput = "Sorry, the Met Office Data Point is experiencing a problem. Please try again later";
-        } else {
-            speechOutput = getUmbrellaDecisionResponse(dataPointResponse.rainProb);
-        }
-
-        response.tellWithCard(speechOutput, "MODecide", speechOutput)
-    });
-}
-
-/**
- * Uses NOAA.gov API, documented: http://tidesandcurrents.noaa.gov/api/
- * Results can be verified at: http://tidesandcurrents.noaa.gov/noaatidepredictions/NOAATidesFacade.jsp?Stationid=[id]
- */
-function makeDataPointRequest(station, date, callback) {
-    /* data point stuff */
-}
-
-/**
- * Gets the city from the intent, or returns an error
- */
-function getLocationFromIntent(intent, assignDefault) {
-
-    var locationSlot = intent.slots.location;
-    // slots can be missing, or slots can be provided but with empty value.
-    // must test for both.
-    if (!locationSlot || !locationSlot.value) {
-       /* if missing */
-    } else {
-        // lookup the city. Sample skill uses well known mapping of a few known cities to station id.
-        return locationSlot.value;
-    }
-}
-
-/**
- * Gets the date from the intent, defaulting to today if none provided,
- * or returns an error
- */
-function getDateFromIntent(intent) {
-
-    var dateSlot = intent.slots.Date;
-    // slots can be missing, or slots can be provided but with empty value.
-    // must test for both.
-    if (!dateSlot || !dateSlot.value) {
-        // default to today
-        return {
-            displayDate: "Today",
-            requestDateParam: "date=today"
-        }
-    } else {
-
-        var date = new Date(dateSlot.value);
-
-        // format the request date like YYYYMMDD
-        var month = (date.getMonth() + 1);
-        month = month < 10 ? '0' + month : month;
-        var dayOfMonth = date.getDate();
-        dayOfMonth = dayOfMonth < 10 ? '0' + dayOfMonth : dayOfMonth;
-        var requestDay = "begin_date=" + date.getFullYear() + month + dayOfMonth
-            + "&range=24";
-
-        return {
-            displayDate: alexaDateUtil.getFormattedDate(date),
-            requestDateParam: requestDay
-        }
-    }
-}
 
 // Create the handler that responds to the Alexa Request.
 exports.handler = function (event, context) {
