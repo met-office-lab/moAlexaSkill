@@ -16,11 +16,11 @@
     "requestId": "EdwRequestId.37753c36-e226-4c15-b2c4-95242852a878",
     "timestamp": 1447238138298,
     "intent": {
-      "name": "OneShotUmbrellaIntent",
+      "name": "DialogUmbrellaIntent",
       "slots": {
         "location": {
           "name": "ukPlace",
-          "value": "Exeter"
+          "value": ""
         }
       }
     },

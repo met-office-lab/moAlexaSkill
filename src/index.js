@@ -90,16 +90,16 @@ MODecide.prototype.intentHandlers = {
     },
 
     DialogUmbrellaIntent: function (intent, session, response) {
-        // Determine if this turn is for city, for date, or an error.
+        // Determine if this turn is for city, or an error.
         // We could be passed slots with values, no slots, slots with no value.
-        var citySlot = intent.slots.City;
-        var dateSlot = intent.slots.Date;
+        var citySlot = intent.slots.location;
         if (citySlot && citySlot.value) {
-            handleCityDialogRequest(intent, session, response);
-        } else if (dateSlot && dateSlot.value) {
-            handleDateDialogRequest(intent, session, response);
-        } else {
-            handleNoSlotDialogRequest(intent, session, response);
+            console.log('oneshot');
+            handleOneshotUmbrellaRequest(intent, session, response);
+        } 
+        else {
+            console.log('noslot');
+            handleNoSlotUmbrellaRequest(intent, session, response);
         }
     },
 
@@ -122,13 +122,34 @@ function handleWelcomeRequest(response) {
 }
 
 function handleHelpRequest(response) {
-    var repromptText = "Ask me if you are going to need an umbrella if you like.";
+    var repromptText = "Ask me if you are going to need an umbrella if you like. ";
     var speechOutput = "I'm here to help you make decisions that rely on our "
-        + "world leading weather forecasts."
+        + "world leading weather forecasts. "
         + "Or you can say exit. "
-        + "For instance, you can find out if you'll need an umbrella."
+        + "For instance, you can find out if you'll need an umbrella. "
         + repromptText;
 
+    console.log(speechOutput);
+    console.log(repromptText);
+
+    response.ask(speechOutput, repromptText);
+}
+
+/**
+ * Handle no slots, or slot(s) with no values.
+ * In the case of a dialog based skill with multiple slots,
+ * when passed a slot with no value, we cannot have confidence
+ * it is the correct slot type so we rely on session state to
+ * determine the next turn in the dialog, and reprompt.
+ */
+function handleNoSlotUmbrellaRequest(intent, session, response) {
+    // get city re-prompt
+    var repromptText = "Which city are you in, today? ";
+    var speechOutput = "I can tell you if you need an umbrella, if you let me know where you are. "
+        + repromptText;
+
+    console.log(speechOutput);
+    console.log(repromptText);
     response.ask(speechOutput, repromptText);
 }
 
