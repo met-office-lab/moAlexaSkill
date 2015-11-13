@@ -139,22 +139,39 @@ function handleHelpRequest(response) {
  */
 function handleOneshotUmbrellaRequest(intent, session, response) {
     // Determine city, using default if none provided
-    var responseTxt = getLocationFromIntent(intent, function(location) { 
-                            getWeatherFromLocation(location, function(weather) {
-                                setUmbrellaDecisionResponse( weather, response )
-                                                   })
+    var responseTxt = getLocationFromIntent(intent, 
+                                            function(location) {
+                                                onGotLocation(location, response);
                                             });
+}
+
+function onGotLocation(location, response) {
+    var rainprob = getWeatherFromLocation(location);
+    var responseTxt = getUmbrellaDecisionResponse(rainprob);
+    response.tellWithCard(responseTxt, "Do you need an umbrella?", responseTxt)
+    console.log(responseTxt);
 }
 
 /**
  * Gets the city from the intent, or returns an error
  */
-function getLocationFromIntent(intent) {
-    request.get("http://nominatim.openstreetmap.org/search?q=+"+intent.slots.City+"&format=json&polygon=0&addressdetails=1")
-            .on("error", function(e) {throw e} )
-            .on("response", function(r) { callback({"lat": r.lat,
-                                                    "lon": r.lon,
-                                                    "City": intent.slots.City})})
+function getLocationFromIntent(intent, callback) {
+    var city = intent.slots.location.value;
+    request("http://nominatim.openstreetmap.org/search?q=+"+city+"&format=json&polygon=0&addressdetails=1", 
+            function(error, response, body) {
+                if (!error && response.statusCode == 200) {
+                    var r = JSON.parse(body)[0];
+                    console.log(city);
+                    callback({
+                        "lat": r.lat,
+                        "lon": r.lon,
+                        "City": city
+                    })
+                }
+                else {
+                    throw error;
+                }
+            })
 }
 
 function getWeatherFromLocation(location){
@@ -163,18 +180,17 @@ function getWeatherFromLocation(location){
     var forecast = datapoint.get_forecast_for_site(site.id);
     var current_timestep = forecast.days[0].timesteps[0];
     
-    callback(current_timestep.precipitation.value);
+    return current_timestep.precipitation.value;
 }
 
-function getUmbrellaDecisionResponse( rainProb, response ) {
+function getUmbrellaDecisionResponse( rainProb ) {
     var decisionTxt = "";
-    if (rainProb > 0.5) {
+    console.log(rainProb);
+    if (rainProb > 50) {
         decisionTxt = "Take an umbrella";
     } else {
         decisionTxt = "Don't take an umbrella";
     }
-
-    response.tellWithCard(responseTxt, "Do you need an umbrella?", responseTxt)
 
     return decisionTxt;
 }
